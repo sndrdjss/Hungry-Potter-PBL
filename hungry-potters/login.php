@@ -70,67 +70,86 @@ function login_h(string $value): string
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#f3fbf6">
+    <meta name="theme-color" content="#edf6f2">
     <title>Staff Login | Hungry Potters</title>
     <link rel="icon" type="image/png" href="assets/images/logo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@100..900&amp;family=Work+Sans:wght@100..900&amp;display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="assets/js/tailwind-config.js"></script>
-    <link href="assets/css/app.css" rel="stylesheet">
+    <link href="assets/css/app.css?v=<?= filemtime(__DIR__ . '/assets/css/app.css') ?>" rel="stylesheet">
 </head>
-<body class="flex min-h-screen items-center justify-center bg-surface px-4 py-10 font-body-md text-on-surface antialiased">
-    <main class="w-full max-w-md">
-        <section class="rounded-2xl bg-surface-container-lowest p-8 shadow-lg sm:p-10">
-            <div class="mb-8 text-center">
-                <img alt="Hungry Potters logo" class="mx-auto mb-4 h-28 w-28 object-contain" src="assets/images/logo.png">
-                <h1 class="font-headline-lg text-headline-lg font-bold text-primary">Hungry Potters</h1>
-                <p class="mt-1 font-body-md text-body-md text-on-surface-variant">Operations &amp; Kitchen</p>
+<body class="login-page">
+    <div class="login-scene" aria-hidden="true">
+        <div class="login-cluster login-cluster-chicken">
+            <img class="login-garnish login-basil-chicken" src="assets/images/login-basil-sprig.png" alt="">
+            <img class="login-food login-food-chicken" src="../images/fried%20chicken%20no%20bg.png" alt="">
+        </div>
+        <div class="login-cluster login-cluster-sisig">
+            <img class="login-garnish login-basil-sisig" src="assets/images/login-basil-sprig.png" alt="">
+            <img class="login-food login-food-sisig" src="../images/sisig%20no%20bg.png" alt="">
+            <img class="login-garnish login-tomatoes login-tomatoes-sisig" src="assets/images/login-cherry-tomato-slices.png" alt="">
+        </div>
+        <div class="login-cluster login-cluster-egg">
+            <img class="login-garnish login-basil-egg" src="assets/images/login-basil-sprig.png" alt="">
+            <img class="login-food login-food-egg" src="../images/egg%20no%20bg.png" alt="">
+            <img class="login-garnish login-tomatoes login-tomatoes-egg" src="assets/images/login-cherry-tomato-slices.png" alt="">
+        </div>
+    </div>
+
+    <main class="login-main">
+        <section class="login-card" aria-labelledby="login-title">
+            <div class="login-brand">
+                <span class="login-brand-mark">
+                    <img alt="Hungry Potters logo" src="assets/images/logo.png">
+                </span>
+                <h1>Hungry Potters</h1>
+                <p>Operations &amp; Kitchen</p>
             </div>
 
-            <h2 class="mb-1 font-headline-md text-headline-md font-bold text-primary">Staff Login</h2>
-            <p class="mb-6 font-body-md text-body-md text-on-surface-variant">Sign in to open your operations workspace.</p>
+            <div class="login-content">
+                <div class="login-intro">
+                    <h2 id="login-title">Staff Login</h2>
+                    <p>Sign in to open your operations workspace.</p>
+                </div>
 
-            <?php if ($errorMessage !== ''): ?>
-                <div class="mb-5 rounded-lg border border-error/30 bg-error-container p-3 font-body-md text-body-md text-on-error-container" role="alert">
-                    <?= login_h($errorMessage) ?>
-                </div>
-            <?php endif; ?>
+                <?php if ($errorMessage !== ''): ?>
+                    <div class="login-error" role="alert">
+                        <?= login_h($errorMessage) ?>
+                    </div>
+                <?php endif; ?>
 
-            <form action="login.php" method="post" class="flex flex-col gap-4">
-                <input type="hidden" name="csrf_token" value="<?= login_h(csrf_token()) ?>">
-                <div>
-                    <label class="mb-1 block font-label-md text-label-md text-on-surface" for="username">Username</label>
-                    <input
-                        autocomplete="username"
-                        class="h-12 w-full rounded-lg border border-outline-variant bg-surface px-4 font-body-md text-body-md text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary-container/30"
-                        id="username"
-                        maxlength="50"
-                        name="username"
-                        required
-                        value="<?= login_h($username) ?>"
-                    >
-                </div>
-                <div>
-                    <label class="mb-1 block font-label-md text-label-md text-on-surface" for="password">Password</label>
-                    <input
-                        autocomplete="current-password"
-                        class="h-12 w-full rounded-lg border border-outline-variant bg-surface px-4 font-body-md text-body-md text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary-container/30"
-                        id="password"
-                        maxlength="255"
-                        name="password"
-                        required
-                        type="password"
-                    >
-                </div>
-                <button class="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 font-body-md-bold text-body-md-bold text-on-primary shadow-md transition-colors hover:bg-primary-container" type="submit">
-                    <span>Sign In</span>
-                    <svg aria-hidden="true" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24">
-                        <path d="M5 12h14m-7-7 7 7-7 7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-                    </svg>
-                </button>
-            </form>
+                <form action="login.php" method="post" class="login-form">
+                    <input type="hidden" name="csrf_token" value="<?= login_h(csrf_token()) ?>">
+                    <div class="login-field">
+                        <label for="username">Username</label>
+                        <input
+                            autocomplete="username"
+                            id="username"
+                            maxlength="50"
+                            name="username"
+                            required
+                            value="<?= login_h($username) ?>"
+                        >
+                    </div>
+                    <div class="login-field">
+                        <label for="password">Password</label>
+                        <input
+                            autocomplete="current-password"
+                            id="password"
+                            maxlength="255"
+                            name="password"
+                            required
+                            type="password"
+                        >
+                    </div>
+                    <button class="login-submit" type="submit">
+                        <span>Sign In</span>
+                        <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+                            <path d="M5 12h14m-7-7 7 7-7 7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+                        </svg>
+                    </button>
+                </form>
+            </div>
         </section>
     </main>
 </body>
