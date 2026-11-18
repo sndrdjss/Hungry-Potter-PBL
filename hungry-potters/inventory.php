@@ -99,9 +99,7 @@ if ($selectedId !== null && $selectedId > 0) {
     $selectedStatement->execute(['id' => $selectedId]);
     $selectedItem = $selectedStatement->fetch() ?: null;
 }
-if ($selectedItem === null && $filter !== 'archived' && $inventoryItems !== []) {
-    $selectedItem = $inventoryItems[0];
-}
+$showSidePanel = $selectedItem !== null || ($roleCanEdit && isset($_GET['new']));
 
 $movementStatement = $pdo->prepare(
     'SELECT movements.id, movements.movement_type, movements.quantity_change,
@@ -213,7 +211,7 @@ require __DIR__ . '/includes/header.php';
     </section>
 
     <div class="grid grid-cols-1 items-start gap-6 xl:grid-cols-12">
-        <section class="flex min-w-0 flex-col overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm xl:col-span-8">
+        <section class="flex min-w-0 flex-col overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm <?= $showSidePanel ? 'xl:col-span-8' : 'xl:col-span-12' ?>">
             <div class="flex flex-col justify-between gap-4 bg-surface-container-low p-4 md:flex-row md:items-center">
                 <nav aria-label="Inventory filters" class="flex items-center gap-2 overflow-x-auto">
                     <?php
@@ -279,10 +277,10 @@ require __DIR__ . '/includes/header.php';
                                 ?>
                                 <tr class="h-16 min-h-[60px] transition-colors <?= $rowClass ?> <?= $selectedClass ?>">
                                     <td class="px-4 py-3">
-                                        <a class="block" href="inventory.php?<?= h(http_build_query(array_filter(['id' => (int) $item['id'], 'filter' => $filter === 'all' ? null : $filter, 'search' => $search], static fn ($value): bool => $value !== null && $value !== ''))) ?>">
+                                        <div class="block">
                                             <span class="block font-body-md-bold text-body-md-bold <?= $isOut ? 'text-error' : ($isLow ? 'text-secondary' : 'text-on-surface') ?>"><?= h($item['name']) ?></span>
                                             <span class="block font-label-sm text-label-sm text-on-surface-variant"><?= h($item['description'] ?: $item['category_name']) ?></span>
-                                        </a>
+                                        </div>
                                     </td>
                                     <td class="px-4 py-3 font-label-md text-label-md text-on-surface-variant"><?= h($item['unit']) ?></td>
                                     <td class="px-4 py-3 text-right font-headline-sm text-headline-sm font-bold <?= $isOut ? 'text-error' : ($isLow ? 'text-secondary' : 'text-on-surface') ?>"><?= h(rtrim(rtrim(number_format($stock, 2, '.', ''), '0'), '.')) ?></td>
@@ -295,12 +293,19 @@ require __DIR__ . '/includes/header.php';
                                     </td>
                                     <?php if ($roleCanEdit): ?>
                                         <td class="px-4 py-3 text-center">
-                                            <form action="actions/inventory-save.php" method="post" onsubmit="return confirm('<?= $filter === 'archived' ? 'Restore' : 'Remove' ?> this ingredient?<?= $filter === 'archived' ? '' : ' If it is used by a dish or has stock history, it will be archived; otherwise it will be deleted.' ?>');">
-                                                <input name="csrf_token" type="hidden" value="<?= h(csrf_token()) ?>">
-                                                <input name="action" type="hidden" value="<?= $filter === 'archived' ? 'restore' : 'remove' ?>">
-                                                <input name="item_id" type="hidden" value="<?= h($item['id']) ?>">
-                                                <button class="rounded-lg px-3 py-2 font-label-md <?= $filter === 'archived' ? 'bg-surface-container text-primary' : 'bg-error-container text-on-error-container' ?>" type="submit"><?= $filter === 'archived' ? 'Restore' : 'Remove' ?></button>
-                                            </form>
+                                            <div class="flex flex-wrap items-center justify-center gap-2">
+                                                <?php if ($filter !== 'archived'): ?>
+                                                    <a class="inline-flex min-h-10 items-center gap-1 rounded-lg bg-primary-fixed px-3 py-2 font-label-md font-semibold text-primary hover:bg-primary-container" href="inventory.php?<?= h(http_build_query(array_filter(['id' => (int) $item['id'], 'filter' => $filter === 'all' ? null : $filter, 'search' => $search], static fn ($value): bool => $value !== null && $value !== ''))) ?>">
+                                                        <span class="material-symbols-outlined text-[17px]">edit</span><span>Edit</span>
+                                                    </a>
+                                                <?php endif; ?>
+                                                <form action="actions/inventory-save.php" method="post" onsubmit="return confirm('<?= $filter === 'archived' ? 'Restore' : 'Remove' ?> this ingredient?<?= $filter === 'archived' ? '' : ' If it is used by a dish or has stock history, it will be archived; otherwise it will be deleted.' ?>');">
+                                                    <input name="csrf_token" type="hidden" value="<?= h(csrf_token()) ?>">
+                                                    <input name="action" type="hidden" value="<?= $filter === 'archived' ? 'restore' : 'remove' ?>">
+                                                    <input name="item_id" type="hidden" value="<?= h($item['id']) ?>">
+                                                    <button class="rounded-lg px-3 py-2 font-label-md <?= $filter === 'archived' ? 'bg-surface-container text-primary' : 'bg-error-container text-on-error-container' ?>" type="submit"><?= $filter === 'archived' ? 'Restore' : 'Remove' ?></button>
+                                                </form>
+                                            </div>
                                         </td>
                                     <?php endif; ?>
                                 </tr>
@@ -315,6 +320,7 @@ require __DIR__ . '/includes/header.php';
             </div>
         </section>
 
+        <?php if ($showSidePanel): ?>
         <aside class="flex w-full flex-col gap-4 xl:sticky xl:top-24 xl:col-span-4">
             <?php if ($roleCanEdit && (isset($_GET['new']) || isset($_GET['edit']) && $selectedItem !== null)): ?>
                 <?php $editing = isset($_GET['edit']) && $selectedItem !== null; ?>
@@ -541,6 +547,7 @@ require __DIR__ . '/includes/header.php';
                 </section>
             <?php endif; ?>
         </aside>
+        <?php endif; ?>
     </div>
 
     <footer class="flex flex-col items-center justify-between gap-3 rounded-xl border border-outline-variant/30 bg-surface-container-low px-6 py-4 font-label-md text-label-md text-on-surface-variant sm:flex-row">
