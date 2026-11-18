@@ -245,15 +245,8 @@
             if (!response.ok || result.success !== true) {
                 throw new Error(result.message || `Order could not be placed (HTTP ${response.status}).`);
             }
-            if (orderType.value === 'takeout') {
-                if (!result.slip_number) {
-                    throw new Error('The order was placed, but its slip number could not be loaded.');
-                }
-                window.location.assign(`order-slip.php?slip=${encodeURIComponent(result.slip_number)}`);
-                return;
-            }
-            showMessage(`Order ${result.order_number} placed as Q-${String(result.queue_number).padStart(3, '0')}.`);
-            window.setTimeout(() => window.location.reload(), 900);
+            window.location.assign(`payments.php?order_id=${encodeURIComponent(result.order_id)}`);
+            return;
         } catch (error) {
             submitting = false;
             renderCart();

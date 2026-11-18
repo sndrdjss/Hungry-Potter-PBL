@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/includes/auth.php';
 require_login();
 require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/includes/payments.php';
 
 $validStatuses = ['all', 'active', 'placed', 'preparing', 'completed', 'cancelled'];
 $statusFilter = isset($_GET['status']) && is_string($_GET['status']) ? $_GET['status'] : 'all';
@@ -118,6 +119,7 @@ $selectedOrder = null;
 $selectedItems = [];
 $selectedIngredients = [];
 $selectedHistory = [];
+$selectedPaymentSummary = null;
 $canEditSelectedOrder = false;
 $hasUnmappedSelectedItem = false;
 $editableMenuItems = [];
@@ -134,6 +136,7 @@ if ($orderId !== null && $orderId > 0) {
     $selectedOrder = $selectedStatement->fetch() ?: null;
 
     if ($selectedOrder !== null) {
+        $selectedPaymentSummary = payment_summary($selectedOrder, payment_transactions_for_order($pdo, $orderId));
         $itemsStatement = $pdo->prepare(
             'SELECT id, menu_item_id, item_name, quantity, unit_price, line_total, item_note, status
              FROM order_items
@@ -577,6 +580,19 @@ require __DIR__ . '/includes/header.php';
                         </div>
                     </section>
 
+                    <?php if ($selectedPaymentSummary !== null): ?>
+                        <section class="rounded-xl border border-surface-container bg-surface-container-low p-4">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <h4 class="font-body-md-bold text-primary">Payment · <?= h($selectedPaymentSummary['status']) ?></h4>
+                                <?php if ($canEditOrders): ?><a class="rounded-lg bg-primary px-3 py-2 font-label-md text-on-primary" href="payments.php?order_id=<?= h($selectedOrder['id']) ?>">View and record payments</a><?php endif; ?>
+                            </div>
+                            <p class="mt-2 font-label-md text-on-surface-variant">Collected ₱<?= h(payment_format($selectedPaymentSummary['paid'])) ?> · Refunded ₱<?= h(payment_format($selectedPaymentSummary['refunded'])) ?></p>
+                            <?php if ($selectedPaymentSummary['balance'] !== 0 && $selectedOrder['payment_history_state'] !== 'legacy_unknown'): ?>
+                                <p class="mt-1 font-body-md-bold <?= $selectedPaymentSummary['balance'] < 0 ? 'text-error' : 'text-primary' ?>"><?= $selectedPaymentSummary['balance'] < 0 ? 'Refund due' : 'Amount due' ?> ₱<?= h(payment_format(abs($selectedPaymentSummary['balance']))) ?></p>
+                            <?php endif; ?>
+                        </section>
+                    <?php endif; ?>
+
                     <?php if ($selectedOrder['kitchen_note']): ?>
                         <section class="rounded-xl border-l-4 border-secondary bg-secondary-fixed/40 p-4">
                             <h4 class="font-label-sm text-label-sm font-bold uppercase tracking-wider text-on-secondary-fixed">Kitchen Note</h4>
@@ -666,7 +682,7 @@ require __DIR__ . '/includes/header.php';
                     </div>
 
                     <div class="mt-4 rounded-lg border border-error/30 bg-error-container/40 p-3 font-label-md text-label-md text-on-error-container">
-                        Payment handling is not automatic. If payment has already been collected, handle any refund or void separately.
+                        Any collected payment will appear as a refund due after cancellation. An admin can record the refund from the order's Payments page.
                     </div>
 
                     <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>

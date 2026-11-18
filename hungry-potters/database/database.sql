@@ -4,7 +4,8 @@ CREATE DATABASE IF NOT EXISTS hungry_potters
 
 USE hungry_potters;
 
--- For existing installations, apply database/migrations/20261031_management_takeout.sql.
+-- For existing installations, apply the migrations in date order, including
+-- database/migrations/20261119_payments_register.sql. Do not reimport this seed file.
 
 CREATE TABLE IF NOT EXISTS users (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -79,6 +80,7 @@ CREATE TABLE IF NOT EXISTS orders (
         NOT NULL DEFAULT 'placed',
     subtotal DECIMAL(10, 2) NOT NULL,
     total DECIMAL(10, 2) NOT NULL,
+    payment_history_state ENUM('legacy_unknown', 'reconciled', 'tracked') NOT NULL DEFAULT 'tracked',
     kitchen_note VARCHAR(500) DEFAULT NULL,
     created_by INT UNSIGNED DEFAULT NULL,
     cashier_name VARCHAR(100) DEFAULT NULL,
@@ -86,10 +88,16 @@ CREATE TABLE IF NOT EXISTS orders (
     started_at DATETIME DEFAULT NULL,
     completed_at DATETIME DEFAULT NULL,
     cancelled_at DATETIME DEFAULT NULL,
+    cancelled_by INT UNSIGNED DEFAULT NULL,
+    cancel_reason VARCHAR(255) DEFAULT NULL,
+    inventory_restored TINYINT(1) NOT NULL DEFAULT 0,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_orders_user
         FOREIGN KEY (created_by) REFERENCES users(id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_orders_cancelled_by
+        FOREIGN KEY (cancelled_by) REFERENCES users(id)
         ON DELETE SET NULL,
     INDEX idx_orders_status_created (status, created_at),
     INDEX idx_orders_created_at (created_at)
@@ -125,7 +133,7 @@ CREATE TABLE IF NOT EXISTS inventory_movements (
     inventory_item_id INT UNSIGNED NOT NULL,
     order_id INT UNSIGNED DEFAULT NULL,
     changed_by INT UNSIGNED DEFAULT NULL,
-    movement_type ENUM('order_deduction', 'restock', 'manual_adjustment') NOT NULL,
+    movement_type ENUM('order_deduction', 'restock', 'manual_adjustment', 'cancellation_restore', 'waste') NOT NULL,
     quantity_change DECIMAL(10, 2) NOT NULL,
     quantity_before DECIMAL(10, 2) NOT NULL,
     quantity_after DECIMAL(10, 2) NOT NULL,
@@ -158,6 +166,59 @@ CREATE TABLE IF NOT EXISTS order_status_history (
         FOREIGN KEY (changed_by) REFERENCES users(id)
         ON DELETE SET NULL,
     INDEX idx_order_status_history_order (order_id, changed_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS registers (
+    id TINYINT UNSIGNED PRIMARY KEY,
+    code VARCHAR(20) NOT NULL UNIQUE,
+    current_shift_id BIGINT UNSIGNED DEFAULT NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS register_shifts (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    register_id TINYINT UNSIGNED NOT NULL,
+    opened_by INT UNSIGNED NOT NULL,
+    opened_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    opening_float DECIMAL(10,2) NOT NULL,
+    closed_by INT UNSIGNED DEFAULT NULL,
+    closed_at DATETIME DEFAULT NULL,
+    expected_cash DECIMAL(10,2) DEFAULT NULL,
+    counted_cash DECIMAL(10,2) DEFAULT NULL,
+    variance DECIMAL(10,2) DEFAULT NULL,
+    close_note VARCHAR(255) DEFAULT NULL,
+    CONSTRAINT fk_shifts_register FOREIGN KEY (register_id) REFERENCES registers(id),
+    CONSTRAINT fk_shifts_opened_by FOREIGN KEY (opened_by) REFERENCES users(id),
+    CONSTRAINT fk_shifts_closed_by FOREIGN KEY (closed_by) REFERENCES users(id),
+    INDEX idx_shifts_opened (opened_at)
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO registers (id, code) VALUES (1, 'POS-01');
+
+CREATE TABLE IF NOT EXISTS payment_transactions (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    order_id INT UNSIGNED NOT NULL,
+    shift_id BIGINT UNSIGNED DEFAULT NULL,
+    kind ENUM('payment', 'refund', 'failed') NOT NULL,
+    method ENUM('cash', 'card', 'ewallet') NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    tendered_amount DECIMAL(10,2) DEFAULT NULL,
+    change_amount DECIMAL(10,2) DEFAULT NULL,
+    reference VARCHAR(100) DEFAULT NULL,
+    reason VARCHAR(255) DEFAULT NULL,
+    refund_of_id BIGINT UNSIGNED DEFAULT NULL,
+    refund_kind ENUM('cancellation', 'order_reduction', 'goodwill') DEFAULT NULL,
+    source ENUM('live', 'historical') NOT NULL,
+    occurred_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    recorded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    recorded_by INT UNSIGNED NOT NULL,
+    request_key CHAR(32) NOT NULL UNIQUE,
+    CONSTRAINT fk_payments_order FOREIGN KEY (order_id) REFERENCES orders(id),
+    CONSTRAINT fk_payments_shift FOREIGN KEY (shift_id) REFERENCES register_shifts(id),
+    CONSTRAINT fk_payments_user FOREIGN KEY (recorded_by) REFERENCES users(id),
+    CONSTRAINT fk_payments_refund_of FOREIGN KEY (refund_of_id) REFERENCES payment_transactions(id),
+    INDEX idx_payments_order (order_id, occurred_at),
+    INDEX idx_payments_shift (shift_id, kind, method),
+    INDEX idx_payments_occurred (occurred_at, source)
 ) ENGINE=InnoDB;
 
 -- Demo password for all three accounts is: password

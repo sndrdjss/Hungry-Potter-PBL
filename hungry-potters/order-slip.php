@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/includes/auth.php';
 require_role(['admin', 'cashier']);
 require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/includes/payments.php';
 
 $slipNumber = isset($_GET['slip']) && is_string($_GET['slip'])
     ? trim($_GET['slip'])
@@ -14,6 +15,7 @@ if ($slipNumber !== '' && strlen($slipNumber) <= 32) {
     $orderStatement = $pdo->prepare(
         "SELECT orders.id, orders.slip_number, orders.order_number, orders.order_type,
             orders.status, orders.cancel_reason, orders.cancelled_at, orders.total,
+            orders.payment_history_state,
             DATE_FORMAT(orders.created_at, '%b %e, %Y %l:%i %p') AS slip_created_at,
             orders.cashier_name,
             users.full_name AS staff_name
@@ -26,6 +28,8 @@ if ($slipNumber !== '' && strlen($slipNumber) <= 32) {
 }
 
 $items = [];
+$paymentTransactions = [];
+$paymentSummary = null;
 if ($order !== null) {
     $itemsStatement = $pdo->prepare(
         'SELECT item_name, quantity, unit_price, line_total
@@ -35,6 +39,8 @@ if ($order !== null) {
     );
     $itemsStatement->execute(['order_id' => $order['id']]);
     $items = $itemsStatement->fetchAll();
+    $paymentTransactions = payment_transactions_for_order($pdo, (int) $order['id']);
+    $paymentSummary = payment_summary($order, $paymentTransactions);
 } else {
     http_response_code(404);
 }
@@ -135,7 +141,25 @@ $pageTitle = 'Takeout Order Slip';
             <span>Total</span>
             <span>₱<?= h(number_format((float) $order['total'], 2)) ?></span>
         </div>
+        <?php if ($paymentSummary !== null): ?>
+            <section class="mt-5 border-t border-outline-variant pt-4" aria-label="Payment summary">
+                <div class="flex justify-between gap-3 font-body-md-bold"><span>Payment status</span><strong><?= h($paymentSummary['status']) ?></strong></div>
+                <div class="mt-2 flex justify-between gap-3 text-on-surface-variant"><span>Collected</span><span>₱<?= h(payment_format($paymentSummary['paid'])) ?></span></div>
+                <div class="mt-1 flex justify-between gap-3 text-on-surface-variant"><span>Refunded</span><span>₱<?= h(payment_format($paymentSummary['refunded'])) ?></span></div>
+                <?php if ($order['payment_history_state'] !== 'legacy_unknown' && $paymentSummary['balance'] !== 0): ?>
+                    <div class="mt-2 flex justify-between gap-3 font-body-md-bold"><span><?= $paymentSummary['balance'] < 0 ? 'Refund due' : 'Amount due' ?></span><span>₱<?= h(payment_format(abs($paymentSummary['balance']))) ?></span></div>
+                <?php endif; ?>
+                <?php foreach ($paymentTransactions as $transaction): ?>
+                    <?php if ($transaction['kind'] === 'failed') continue; ?>
+                    <p class="mt-1 font-label-sm text-on-surface-variant"><?= h(ucfirst((string) $transaction['kind'])) ?> · <?= h(ucfirst((string) $transaction['method'])) ?> · ₱<?= h($transaction['amount']) ?></p>
+                <?php endforeach; ?>
+                <?php if ($paymentSummary['status'] !== 'Paid' && $paymentSummary['status'] !== 'Refunded'): ?>
+                    <p class="mt-3 font-label-sm text-on-surface-variant">This order slip does not confirm full payment.</p>
+                <?php endif; ?>
+            </section>
+        <?php endif; ?>
         <div class="no-print mt-7 flex flex-wrap gap-3">
+            <a class="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 font-body-md-bold text-on-primary" href="payments.php?order_id=<?= h($order['id']) ?>">Payments</a>
             <button class="min-h-12 rounded-lg bg-primary px-5 font-body-md-bold text-on-primary" onclick="window.print()" type="button">Print slip</button>
             <a class="flex min-h-12 items-center rounded-lg bg-surface-container px-5 font-body-md-bold text-primary" href="new-order.php">Back to New Order</a>
         </div>

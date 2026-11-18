@@ -5,6 +5,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_login();
 
 require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/includes/payments.php';
 
 $today = date('Y-m-d');
 $flashMessage = $_SESSION['dashboard_message'] ?? '';
@@ -13,12 +14,13 @@ $flashType = $_SESSION['dashboard_message_type'] ?? 'success';
 unset($_SESSION['dashboard_message_type']);
 
 $salesStatement = $pdo->prepare(
-    "SELECT COALESCE(SUM(total), 0)
-     FROM orders
-     WHERE status = 'completed' AND DATE(completed_at) = :today"
+    "SELECT COALESCE(SUM(CASE WHEN kind = 'payment' THEN amount WHEN kind = 'refund' THEN -amount ELSE 0 END), 0)
+     FROM payment_transactions
+     WHERE source = 'live' AND DATE(occurred_at) = :today"
 );
 $salesStatement->execute(['today' => $today]);
-$todaySales = (float) $salesStatement->fetchColumn();
+$todayCollected = payment_parse_signed_cents((string) $salesStatement->fetchColumn()) ?? 0;
+$paymentBalances = payment_open_balances($pdo);
 
 $countStatement = $pdo->prepare(
     'SELECT status, COUNT(*) AS order_count
@@ -354,8 +356,16 @@ require __DIR__ . '/includes/header.php';
                     <span class="font-body-md-bold text-on-surface"><?= h($orderCounts['cancelled']) ?></span>
                 </div>
                 <div class="flex items-center justify-between rounded-lg bg-surface-container-low p-3">
-                    <span class="font-label-sm text-label-sm font-bold uppercase tracking-wider text-on-surface-variant">Today's Sales</span>
-                    <span class="font-headline-sm text-headline-sm font-bold text-primary">₱<?= h(number_format($todaySales, 2)) ?></span>
+                    <span class="font-label-sm text-label-sm font-bold uppercase tracking-wider text-on-surface-variant">Net Collected Today</span>
+                    <span class="font-headline-sm text-headline-sm font-bold text-primary">₱<?= h(payment_format($todayCollected)) ?></span>
+                </div>
+                <div class="flex items-center justify-between py-1 font-body-md text-body-md">
+                    <span class="text-on-surface-variant">Customer balances due</span>
+                    <span class="font-body-md-bold text-on-surface">₱<?= h(payment_format($paymentBalances['amount_due'])) ?></span>
+                </div>
+                <div class="flex items-center justify-between py-1 font-body-md text-body-md">
+                    <span class="text-on-surface-variant">Refunds due</span>
+                    <span class="font-body-md-bold text-error">₱<?= h(payment_format($paymentBalances['refund_due'])) ?></span>
                 </div>
             </section>
         </div>

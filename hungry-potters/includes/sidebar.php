@@ -9,6 +9,9 @@ $navigationItems = [
     ['page' => 'kitchen-display', 'label' => 'Kitchen Display', 'icon' => 'skillet', 'href' => 'kitchen.php'],
     ['page' => 'inventory', 'label' => 'Inventory', 'icon' => 'inventory_2', 'href' => 'inventory.php'],
 ];
+if (in_array($_SESSION['role'] ?? '', ['admin', 'cashier'], true)) {
+    $navigationItems[] = ['page' => 'register', 'label' => 'Register', 'icon' => 'point_of_sale', 'href' => 'register.php'];
+}
 if (($_SESSION['role'] ?? '') === 'admin') {
     $navigationItems[] = ['page' => 'menu-management', 'label' => 'Menu Management', 'icon' => 'restaurant_menu', 'href' => 'menu-management.php'];
     $navigationItems[] = ['page' => 'user-management', 'label' => 'User Management', 'icon' => 'manage_accounts', 'href' => 'user-management.php'];

@@ -32,6 +32,20 @@ function require_role(array $allowedRoles): void
     }
 }
 
+function refresh_account_for_money_actions(PDO $pdo): void
+{
+    require_login();
+    $statement = $pdo->prepare('SELECT role, full_name, is_active FROM users WHERE id = :id');
+    $statement->execute(['id' => $_SESSION['user_id']]);
+    $user = $statement->fetch();
+    if (!$user || (int) $user['is_active'] !== 1) {
+        http_response_code(403);
+        exit('This staff account is inactive. Sign out and contact an admin.');
+    }
+    $_SESSION['role'] = $user['role'];
+    $_SESSION['full_name'] = $user['full_name'];
+}
+
 function h(string|int|float|null $value): string
 {
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
