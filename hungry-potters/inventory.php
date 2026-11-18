@@ -156,7 +156,7 @@ require __DIR__ . '/includes/header.php';
         <?php if ($roleCanEdit): ?>
             <a class="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-label-lg text-label-lg text-on-primary shadow-md transition-colors hover:bg-primary-container" href="inventory.php?new=1">
                 <span class="material-symbols-outlined text-[20px]">add</span>
-                <span>+ Add Stock Item</span>
+                <span>Add Stock Item</span>
             </a>
         <?php endif; ?>
     </section>
